@@ -76,4 +76,57 @@ router.get('/', async (req, res) => {
   });
 });
 
+// GET /api/reports/events - One summary row per event: attendance, volunteers and dietary counts
+
+router.get('/events', async (req, res) => {
+  const { data, error} = await supabase
+  .from('events')
+  .select(`
+    event_id,
+    name,
+    event_start_datetime,
+    capacity,
+    predicted_attendance,
+    volunteers_needed,
+    event_attendees (
+      attended,
+      attendees (
+        attendee_requirements (
+          dietary_requirements (
+            requirement_name))
+    )
+  ),
+  event_volunteers ( volunteer_id)
+  `)
+  .order('event_start_datetime', {ascending: true});
+
+  if (error) return res.status(500).json({ error: error.message });
+
+  const report = data.map((e) => {
+    // Count how many registered attendees have dietary requirements
+    const dierary = {};
+    for (const a of e.event_attendees) {
+      for (const r of a.attendees.attendee_requirements) {
+        const name = r.dietary_requirements.requirement_name;
+        dierary[name] = (dierary[name] || 0) + 1;
+      }
+    }
+
+    return {
+      id: e.event_id,
+      name: e.name,
+      start: e.event_start_datetime,
+      capacity: e.capacity,
+      predicted: e.predicted_attendance,
+      registered: e.event_attendees.length,
+      attended: e.event_attendees.filter(a => a.attended).length,
+      volunteers_needed: e.volunteers_needed,
+      volunteers_booked: e.event_volunteers.length,
+      dietary: dierary,
+    };
+  });
+
+  res.json(report);
+});
+
 export default router;
