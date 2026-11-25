@@ -1,23 +1,22 @@
 import { Card, CardTitle, CardContent, CardDescription, CardHeader } from "./ui/card";
+import { formatDate, formatTime } from "../lib/format";
 
-
+// `event` is the API's event shape (see server/API.md)
 export default function EventCard({ event }) {
-    const date = new Date(event.date).toLocaleDateString("en-GB", {
-        weekday: "short", day: "numeric", month: "short",
-    });
-
     const stats = [
-        { label: "Booked", value: event.capacity != null ? `${event.booked} / ${event.capacity}` : event.booked },
+        { label: "Registered", value: `${event.registered} / ${event.capacity}` },
+        { label: "Attended", value: event.attended },
         { label: "Predicted", value: event.predicted },
-        { label: "Volunteers numbers", value: event.volunteers_needed != null ? `${event.volunteers_booked_sum} / ${event.volunteers_needed}` : null },
-        { label: "Volunteer ID's", value: event.volunteers_booked?.join(", ") || null},
-    ].filter((s) => s.value != null);
+        { label: "Volunteers", value: `${event.volunteers.booked} / ${event.volunteers.needed}` },
+    ];
 
     return (
         <Card>
             <CardHeader>
                 <CardTitle>{event.name}</CardTitle>
-                <CardDescription>{event.location} · {date}{event.time && `, ${event.time}`}</CardDescription>
+                <CardDescription>
+                    {event.location.name} · {formatDate(event.start)}, {formatTime(event.start)}–{formatTime(event.end)}
+                </CardDescription>
             </CardHeader>
 
             <CardContent className={"flex flex-wrap justify-between gap-2"}>
