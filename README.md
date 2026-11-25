@@ -6,7 +6,12 @@ Event management web app. React + Vite frontend, Node + Express API, Supabase (P
 
 ```
 client/    React + Vite frontend + Tailwind with Shad-Cn Components in Base UI
-server/    Express API (supabase.js holds the Supabase client)
+server/    Express API
+  routes/    HTTP only: read the request, validate it, send the response
+  queries/   all Supabase access (one file per area)
+  lib/       shared helpers (validation, errors, row -> JSON mappers)
+  db/        SQL to run in the Supabase SQL editor (views.sql, security.sql)
+  supabase.js  the Supabase client
 ```
 
 ## Setup
@@ -25,6 +30,13 @@ Create env files from the examples (never commit them):
 
 - `server/.env`: `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `CLIENT_ORIGIN`
 - `client/.env`: `VITE_API_URL` (leave unset locally)
+
+## Database setup (once per Supabase project)
+
+After the schema and data are loaded, run these in the Supabase SQL editor:
+
+1. `server/db/views.sql` - reporting views and indexes the API reads from (safe to re-run).
+2. `server/db/security.sql` - turns Row Level Security on for every table so only the API's secret key can read or write.
 
 ## Running
 
@@ -50,6 +62,21 @@ The frontend calls the API with `/api/...` paths. In development, Vite proxies t
 - Anything under `/api` is the server. Everything else is a React page.
 
 Database access goes through `server/supabase.js` only. The Supabase secret key stays on the server and is never put in a `VITE_` variable or sent to the browser.
+
+### API
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/events?when=upcoming\|past\|all&from=&to=&location=&limit=&offset=` | `{ items: [event], total }` (default: upcoming, 20 per page, max 100) |
+| `GET /api/events/:id` | one event |
+| `GET /api/events/:id/attendees` | registered people with dietary requirements, meal and `attended` |
+| `PATCH /api/events/:id/attendees/:attendeeId` body `{ "attended": true }` | check an attendee in / out |
+| `GET /api/reports/overview` | headline totals, per-venue totals, dietary demand |
+| `GET /api/reports/events?when=past&limit=` | per-event report rows with dietary counts |
+
+Full request / response details: [`server/API.md`](server/API.md).
+
+Errors are always `{ "error": "message" }` with a 400, 404 or 500 status. Timestamps are ISO strings; the UI shows them in Europe/London time.
 
 Live attendee counts: TBD
 

@@ -1,132 +1,24 @@
 import { Router } from 'express';
-import { supabase } from '../supabase.js';
+import { parseEventFilters } from '../lib/params.js';
+import { listEvents } from '../queries/events.js';
+import { getOverview, getDietaryByEvent } from '../queries/reports.js';
 
 const router = Router();
 
-/**
- * GET /
- * Returns a summary analysis of all events plus the raw event list.
- *
- * Analysis includes:
- * - Total number of events
- * - Booked vs unbooked counts
- * - Events grouped by location
- * - Upcoming vs past events (based on today's date)
- 
- */
-router.get('/', async (req, res) => {
-  const { data, error } = await supabase
-    .from('events')
-    .select('*')
-  
-
-  if (error) return res.status(500).json({ error: error.message });
-
-  const { data: dietary, error: dietaryError, } = await supabase
-    .from('dietary_requirements')
-    .select('*');
-
-  if (dietaryError) return res.status(500).json({ error: dietaryError.message });
-
-  //Gets total events
-  const totalEvents = data.length;
-
-  // Booked vs Unbooked events  
-  const bookedCount = data.filter(event => event.booked === true).length;
-  const unbookedCount = totalEvents - bookedCount;
-
-  // Events per location
-  const byLocation = {};
-  data.forEach(event => {
-    const location = event.location || 'Unknown';
-    byLocation[location] = (byLocation[location] || 0) + 1;
-  });
-
-  // Upcoming vs past (compares event_date with today's date)
-  const today = new Date().toISOString().split('T')[0];
-  const upcomingCount = data.filter(event => event.event_date >= today).length;
-  const pastCount = totalEvents - upcomingCount;
-
-  // --Dietary analysis--
-  const totalDietary = dietary.length;
-
-  // Group dietary requirements by type
-  const dietaryByType = {};
-  dietary.forEach(item => {
-    const type = item.requirement_name || 'Unknown';
-    dietaryByType[type] = (dietaryByType[type] || 0) + 1;
-  });
-
-  // Response
-  res.json({
-    summary: {
-      totalEvents,
-      bookedCount,
-      unbookedCount,
-      upcomingCount,
-      pastCount,
-      byLocation,
-      totalDietary,
-      dietaryByType
-    },
-    events: data,
-    
-    
-   
-  });
+// GET /api/reports/overview -> { summary, byLocation[], dietary[] }
+// Totals for "past" figures only count events that have finished.
+router.get('/overview', async (req, res) => {
+  res.json(await getOverview());
 });
 
-// GET /api/reports/events - One summary row per event: attendance, volunteers and dietary counts
-
+// GET /api/reports/events?when=past&from=&to=&location=&limit=&offset=
+// -> { items: [event + dietary: { requirement: registeredCount }], total }
+// Same filters as /api/events, but defaults to past events and is capped at 100 per page.
 router.get('/events', async (req, res) => {
-  const { data, error} = await supabase
-  .from('events')
-  .select(`
-    event_id,
-    name,
-    event_start_datetime,
-    capacity,
-    predicted_attendance,
-    volunteers_needed,
-    event_attendees (
-      attended,
-      attendees (
-        attendee_requirements (
-          dietary_requirements (
-            requirement_name))
-    )
-  ),
-  event_volunteers ( volunteer_id)
-  `)
-  .order('event_start_datetime', {ascending: true});
-
-  if (error) return res.status(500).json({ error: error.message });
-
-  const report = data.map((e) => {
-    // Count how many registered attendees have dietary requirements
-    const dierary = {};
-    for (const a of e.event_attendees) {
-      for (const r of a.attendees.attendee_requirements) {
-        const name = r.dietary_requirements.requirement_name;
-        dierary[name] = (dierary[name] || 0) + 1;
-      }
-    }
-
-    return {
-      id: e.event_id,
-      name: e.name,
-      start: e.event_start_datetime,
-      capacity: e.capacity,
-      predicted: e.predicted_attendance,
-      registered: e.event_attendees.length,
-      attended: e.event_attendees.filter(a => a.attended).length,
-      volunteers_needed: e.volunteers_needed,
-      volunteers_booked: e.event_volunteers.length,
-      dietary: dierary,
-    };
-  });
-
-  res.json(report);
+  const filters = parseEventFilters(req.query, { defaultWhen: 'past', defaultLimit: 50, maxLimit: 100 });
+  const { items, total } = await listEvents(filters);
+  const dietary = await getDietaryByEvent(items.map((e) => e.id));
+  res.json({ total, items: items.map((e) => ({ ...e, dietary: dietary[e.id] ?? {} })) });
 });
 
 export default router;
