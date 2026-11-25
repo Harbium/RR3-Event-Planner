@@ -1,75 +1,68 @@
-import {useState, useEffect} from 'react';
-import {Card, CardTitle, CardContent, CardDescription, CardHeader} from './ui/card';
+import { Link } from 'react-router';
+import { Card, CardTitle, CardDescription, CardHeader } from './ui/card';
+import AttendanceTrendChart from './reports/AttendanceTrendChart';
+import RatesTrendChart from './reports/RatesTrendChart';
+import VenueComparisonChart from './reports/VenueComparisonChart';
+import ForecastAccuracyChart from './reports/ForecastAccuracyChart';
+import ForecastBiasChart from './reports/ForecastBiasChart';
+import MealDemandChart from './reports/MealDemandChart';
+import MealWasteChart from './reports/MealWasteChart';
+import DietaryTrendChart from './reports/DietaryTrendChart';
+import DietaryByVenueChart from './reports/DietaryByVenueChart';
+import VolunteerCoverageChart from './reports/VolunteerCoverageChart';
+import UpcomingForecast from './reports/UpcomingForecast';
+import { getReportOverview } from '../api/reports.js';
+import { useFetch } from '../hooks/useFetch.js';
+import { percent } from '../lib/format.js';
 
+// A plain assembly of the report components, so there is one page to see them all.
+// Each chart fetches its own data, so any of them can be used on any page on its own.
 export default function Reports() {
-    const [events, setEvents] =  useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+    const { data, loading, error } = useFetch(getReportOverview);
 
-    useEffect(() => {
-        fetch('/api/reports/events')
-            .then((res) => {
-                if (!res.ok) 
-                    throw new Error("Failed to load report");
-                return res.json();
-                })
-                .then(setEvents)
-                .catch((err) => setError(err.message))
-                .finally(() => setLoading(false));
-            }, []);
-            
-            const totals = events.reduce(
-                (t, e) => ({
-                    registtered: t.registered + e.registered,
-                    attended: t.attended + e.attended,
-                    volunteers_needed: t.volunteers_needed + e.volunteers_needed,
-                    volunteers_booked: t.volunteers_booked + e.volunteers_booked,
-                }),
-                { registered: 0, attended: 0, volunteers_needed: 0, volunteers_booked: 0 }
-            );
+    return (
+        <>
+            <Link to="/">Back to events</Link>
+            <h1>Reports</h1>
 
-            if (loading) return <p>Loading...</p>;
-            if (error) return <p role="alert">{error}</p>;
-
-            return (
+            {loading && <p>Loading...</p>}
+            {error && <p role="alert">{error}</p>}
+            {data && (
                 <Card>
                     <CardHeader>
-                        <CardTitle>Events Reports</CardTitle>
+                        <CardTitle>Overview</CardTitle>
                         <CardDescription>
-                        {events.length} events · {totals.attended} / {totals.registered} attended ·{" "}
-                        {totals.volunteersBooked} / {totals.volunteersNeeded} volunteer slots filled
+                            {data.summary.totalEvents} events ({data.summary.pastEvents} held, {data.summary.upcomingEvents} upcoming) ·{" "}
+                            {data.summary.pastAttended} of {data.summary.pastRegistered} registered people attended
+                            ({percent(data.summary.pastAttended, data.summary.pastRegistered)}) ·{" "}
+                            {data.summary.pastVolunteersBooked} of {data.summary.pastVolunteersNeeded} volunteer slots filled
                         </CardDescription>
                     </CardHeader>
-                    <CardContent>
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Event</th>
-                                    <th>Date</th>
-                                    <th>Registred / Capacity</th>
-                                    <th>Predicted</th>
-                                    <th>Attended</th>
-                                    <th>Volunteers</th>
-                                    <th>Dietary</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {events.map((e) => (
-                                    <tr key ={e.id}>
-                                        <td>{e.name}</td>
-                                        <td>{new Date(e.start).toLocaleString()}</td>
-                                        <td>{e.registered} / {e.capacity}</td>
-                                        <td>{e.predicted}</td>
-                                        <td>{e.attended} 
-                                            {e.registered > 0 && ` (${Math.round((e.attended / e.registered) * 100)}%)`}
-                                        </td>
-                                        <td>{e.volunteers_booked} / {e.volunteers_needed}</td>
-                                        <td>{Object.entries(e.dietary).map(([name, count]) => `${name}: ${count}`).join(', ') || "None"}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </CardContent>
                 </Card>
-            )
-}       
+            )}
+
+            <h2>Coming up</h2>
+            <UpcomingForecast />
+
+            <h2>Attendance</h2>
+            <AttendanceTrendChart />
+            <RatesTrendChart />
+            <VenueComparisonChart />
+
+            <h2>Forecasting</h2>
+            <ForecastAccuracyChart />
+            <ForecastBiasChart />
+
+            <h2>Meals</h2>
+            <MealDemandChart />
+            <MealWasteChart />
+
+            <h2>Dietary requirements</h2>
+            <DietaryTrendChart />
+            <DietaryByVenueChart />
+
+            <h2>Volunteers</h2>
+            <VolunteerCoverageChart />
+        </>
+    );
+}

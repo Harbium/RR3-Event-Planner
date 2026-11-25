@@ -37,6 +37,7 @@ After the schema and data are loaded, run these in the Supabase SQL editor:
 
 1. `server/db/views.sql` - reporting views and indexes the API reads from (safe to re-run).
 2. `server/db/security.sql` - turns Row Level Security on for every table so only the API's secret key can read or write.
+3. `server/db/reports.sql` - analysis views behind the report charts and the forecast (safe to re-run).
 
 ## Running
 
@@ -73,8 +74,10 @@ Database access goes through `server/supabase.js` only. The Supabase secret key 
 | `PATCH /api/events/:id/attendees/:attendeeId` body `{ "attended": true }` | check an attendee in / out |
 | `GET /api/reports/overview` | headline totals, per-venue totals, dietary demand |
 | `GET /api/reports/events?when=past&limit=` | per-event report rows with dietary counts |
+| `GET /api/reports/monthly`, `/venues`, `/forecast-accuracy`, `/meals`, `/dietary` | report time series and comparisons |
+| `GET /api/reports/forecast/upcoming?limit=` | expected attendance, meals and dietary needs for the next events |
 
-Full request / response details: [`server/API.md`](server/API.md).
+Full request / response details: [`server/API.md`](server/API.md). Report charts: [`client/src/components/reports/README.md`](client/src/components/reports/README.md).
 
 Errors are always `{ "error": "message" }` with a 400, 404 or 500 status. Timestamps are ISO strings; the UI shows them in Europe/London time.
 

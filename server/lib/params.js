@@ -29,6 +29,15 @@ function parseDay(value, name) {
   return d;
 }
 
+// ?from=YYYY-MM-DD&to=YYYY-MM-DD for report endpoints. Returns the same strings (validated) or undefined.
+export function parseDateRange(query) {
+  const from = text(query, 'from');
+  const to = text(query, 'to');
+  if (from) parseDay(from, 'from');
+  if (to) parseDay(to, 'to');
+  return { from, to };
+}
+
 export function parsePaging(query, { defaultLimit = 20, maxLimit = 100 } = {}) {
   const limit = query.limit === undefined ? defaultLimit : Number(query.limit);
   const offset = query.offset === undefined ? 0 : Number(query.offset);
