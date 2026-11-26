@@ -66,3 +66,32 @@ export function parseEventFilters(query, { defaultWhen = 'upcoming', defaultLimi
     ...parsePaging(query, { defaultLimit, maxLimit }),
   };
 }
+
+// Body of POST /api/events/:id/walk-ins
+//   { name: "Sam Taylor", dietary: [1, 6], mealId: 2 }     a new person
+//   { attendeeId: 123, mealId: 2 }                         someone already in the system
+// mealId is optional (null = no meal chosen).
+export function parseWalkIn(body) {
+  const b = body ?? {};
+  const hasName = b.name !== undefined && b.name !== null && b.name !== '';
+  const hasId = b.attendeeId !== undefined && b.attendeeId !== null;
+  if (hasName === hasId) throw bad('Send either a name (new person) or an attendeeId (existing person)');
+
+  let name = null;
+  if (hasName) {
+    if (typeof b.name !== 'string') throw bad('name must be text');
+    name = b.name.trim().replace(/\s+/g, ' ');
+    if (name.length < 2 || name.length > 100) throw bad('name must be 2 to 100 characters');
+  }
+
+  const dietary = b.dietary ?? [];
+  if (!Array.isArray(dietary) || dietary.length > 20) throw bad('dietary must be a list of requirement ids');
+  if (hasId && dietary.length > 0) throw bad('dietary is only for new people; existing people keep their saved requirements');
+
+  return {
+    name,
+    attendeeId: hasId ? parseId(b.attendeeId, 'attendeeId') : null,
+    mealId: b.mealId === undefined || b.mealId === null ? null : parseId(b.mealId, 'mealId'),
+    requirementIds: [...new Set(dietary.map((d) => parseId(d, 'dietary id')))],
+  };
+}

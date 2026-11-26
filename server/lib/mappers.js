@@ -28,5 +28,7 @@ export const toAttendee = (row) => ({
     .sort(),
   meal: row.event_meals?.meals?.meal_name ?? null,
   attended: row.attended,
+  walkIn: row.walk_in,
+  checkedInAt: row.checked_in_at, // null until they are ticked off (and for historic data)
   registeredAt: row.registered_at,
 });

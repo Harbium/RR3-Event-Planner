@@ -25,3 +25,32 @@ export const setAttendance = (eventId, attendeeId, attended) =>
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ attended }),
   })
+
+// ---- Check-in screen (see docs/CHECKIN.md) --------------------------------------------
+
+// Everything the check-in screen needs in one request:
+//   { serverTime, event, counts: { registered, attended, notArrived, walkIns, overCapacity }, attendees, menu }
+//   attendee also has { walkIn, checkedInAt };  menu item { id, name, stock, chosen, remaining, satisfies: [requirementId] }
+export const getCheckIn = (eventId, options) => api(`/events/${eventId}/checkin`, options)
+
+// Add someone on the day and check them in. body is one of:
+//   { name, dietary: [requirementId], mealId }   a new person
+//   { attendeeId, mealId }                       someone already in the system
+// Rejects with the server's plain-language message (meal run out, already registered, ...).
+export const addWalkIn = (eventId, body) =>
+  api(`/events/${eventId}/walk-ins`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+
+// Find existing people by name (2+ characters). With eventId, results say registeredForEvent.
+// -> [{ id, name, dietary: [name], dietaryIds: [id], registeredForEvent }]
+export const searchAttendees = ({ search, eventId, limit = 10 }, options) => {
+  const params = new URLSearchParams({ search, limit })
+  if (eventId) params.set('eventId', eventId)
+  return api(`/attendees?${params}`, options)
+}
+
+// [{ id, name }] for dietary checkboxes
+export const getDietaryRequirements = (options) => api('/dietary-requirements', options)

@@ -17,6 +17,7 @@ lists them all on one page (`/reports`).
 | `DietaryByVenueChart` | dietary mix per venue | `requirements` (names) |
 | `VolunteerCoverageChart` | volunteers needed vs booked + % short-staffed events | `from`, `to` |
 | `UpcomingForecast` | expected attendance / meals / dietary for the next events | `limit` (default 10) |
+| `ReportsSummary` | the dashboard's reports block: four headline numbers, the last 12 months of attendance, and a link to the full reports page | - |
 
 `from` / `to` are `'YYYY-MM-DD'` strings, e.g. `<AttendanceTrendChart from="2025-01-01" />`.
 
@@ -32,3 +33,5 @@ lists them all on one page (`/reports`).
 1. Add the data endpoint (see `server/API.md`) and a function in `src/api/reports.js`.
 2. Copy a small chart (e.g. `RatesTrendChart.jsx`) and change the data and series.
 3. Wrap it in `ChartCard` and list it in `components/Reports.jsx`.
+
+What each chart's numbers mean, and how the forecast is worked out: [`docs/REPORTS.md`](../../../../docs/REPORTS.md).
