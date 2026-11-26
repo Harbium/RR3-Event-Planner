@@ -129,7 +129,7 @@ All of it is explained in [`docs/CHECKIN.md`](docs/CHECKIN.md).
 
 ## Deployment
 
-The API must allow the frontend's origin through CORS (`CLIENT_ORIGIN`). API hosting: TBD.
+The API must allow the frontend's origin through CORS (`CLIENT_ORIGIN`). API hosting: Render.
 
 ## Working in the repo
 
