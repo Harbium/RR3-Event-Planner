@@ -5,6 +5,9 @@ All responses are JSON. Errors are always `{ "error": "message" }` with status *
 Timestamps are ISO strings with an offset (`2026-11-29T12:30:00+00:00`); show them in `Europe/London` time (see `client/src/lib/format.js`).
 Frontend helpers for every endpoint live in `client/src/api/`.
 
+### `GET /api/health`
+-> `{ "ok": true }`. Answers as long as the API is running; it does not touch the database.
+
 ## Events
 
 ### `GET /api/events`
@@ -27,11 +30,50 @@ Everyone registered, sorted by name. `meal` is null if none was chosen. -> `[att
 
 ```json
 { "id": 4264, "name": "Alfie Milburn", "dietary": ["Vegan"], "meal": "Lentil Potato Curry",
-  "attended": false, "registeredAt": "2026-11-23T16:41:08+00:00" }
+  "attended": false, "walkIn": false, "checkedInAt": null, "registeredAt": "2026-11-23T16:41:08+00:00" }
 ```
+`checkedInAt` is when they were ticked off (null if not arrived, and for data from before arrival times were recorded). `walkIn` is true for people added on the day.
+
+### `GET /api/events/:id/checkin`
+Everything the check-in screen needs in one request; poll this to keep a screen live (the `useCheckIn` hook does).
+Counts are worked out from the returned list, so they always agree with it. `menu` is empty if the event has no menu yet.
+```json
+{ "serverTime": "2026-11-29T12:41:03.512Z",
+  "event": { "...": "same shape as GET /api/events/:id" },
+  "counts": { "registered": 27, "attended": 3, "notArrived": 24, "walkIns": 1, "overCapacity": false },
+  "attendees": [ { "id": 4264, "name": "Alfie Milburn", "dietary": [], "meal": "Lentil Potato Curry",
+                   "attended": true, "walkIn": false, "checkedInAt": "2026-11-29T12:30:11+00:00", "registeredAt": "..." } ],
+  "menu": [ { "id": 1, "name": "Lentil Potato Curry", "stock": 21, "chosen": 12, "remaining": 9,
+              "satisfies": [1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14] } ] }
+```
+`satisfies` lists the dietary requirement ids a meal suits; a meal suits a person when it covers all of theirs.
 
 ### `PATCH /api/events/:id/attendees/:attendeeId`
-Check someone in or out. Body: `{ "attended": true }` (must be a boolean). -> `{ "ok": true, "attended": true }`. 404 if that person is not registered for the event.
+Check someone in or out. Body: `{ "attended": true }` (must be a boolean). -> `{ "ok": true, "attended": true, "checkedInAt": "..." }`.
+Safe to repeat: checking in someone who is already in keeps their first arrival time. Checking out clears it. 404 if that person is not registered for the event.
+
+### `POST /api/events/:id/walk-ins`
+Register someone on the day and check them in, in one step. Works on any event, at any time, and past capacity.
+Body, a new person: `{ "name": "Sam Taylor", "dietary": [1, 6], "mealId": 2 }`; an existing person: `{ "attendeeId": 123, "mealId": 2 }`.
+`mealId` is optional. `dietary` is only for new people (existing people keep their saved requirements).
+-> **201** `{ "ok": true, "attendee": { ...attendee shape... }, "registered": 28, "capacity": 55, "overCapacity": false }`
+
+Errors are `{ "error": "..." }` with a message written for people:
+- **409** "That meal has run out. Choose another meal." / "That meal does not suit this person's dietary requirements" / "That meal is not on this event's menu" / "This person is already registered for this event. Find them in the list and check them in."
+- **400** name missing or not 2 to 100 characters, both or neither of `name` and `attendeeId`, unknown dietary requirement.
+- **404** event or person not found.
+
+If two walk-ins take the last portion of a meal at the same moment, exactly one succeeds.
+
+## People and reference data
+
+### `GET /api/attendees?search=sam&eventId=752&limit=10`
+Find existing people by name (at least 2 characters, limit 1-20, default 10). Names and dietary needs only, never contact details.
+With `eventId`, each result says whether they are already registered for that event.
+-> `[{ "id": 4264, "name": "Alfie Milburn", "dietary": ["Vegan"], "dietaryIds": [1], "registeredForEvent": true }]`
+
+### `GET /api/dietary-requirements`
+-> `[{ "id": 1, "name": "Vegan" }, ...]`. Small and rarely changes, so it is safe to cache.
 
 ## Reports (read-only)
 

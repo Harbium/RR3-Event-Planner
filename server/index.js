@@ -3,6 +3,8 @@ import express from 'express';
 import cors from 'cors';
 import eventsRouter from './routes/events.js';
 import reportsRouter from './routes/reports.js';
+import attendeesRouter from './routes/attendees.js';
+import referenceRouter from './routes/reference.js';
 import { notFound, errorHandler } from './lib/http.js';
 
 const app = express();
@@ -19,6 +21,8 @@ app.use(express.json());
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 app.use('/api/events', eventsRouter);
 app.use('/api/reports', reportsRouter);
+app.use('/api/attendees', attendeesRouter);
+app.use('/api', referenceRouter);
 
 // Anything else under /api is a JSON 404, and every error ends up in one place.
 app.use('/api', notFound);
